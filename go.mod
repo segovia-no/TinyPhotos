@@ -1,4 +1,4 @@
-module tinify-golang
+module tinyphotos
 
 go 1.23.0
 
