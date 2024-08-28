@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
@@ -79,36 +80,70 @@ func processFolder(folderPath string) {
 		log.Fatal("Couldn't create the target folder for the compressed files: ", err.Error())
 	}
 
-	totalJpegs := len(jpegFilePaths)
-	for idx, fpath := range jpegFilePaths {
-		_, fname := filepath.Split(fpath)
-		compressedFilePath := compressedFolderPath + fname
-
-		log.Printf("[%d/%d] Starting processing of %s\n", idx+1, totalJpegs, fname)
-
-		log.Printf("[%d/%d] Compressing file: %s \n", idx+1, totalJpegs, fname)
-		tinifyResponse, err := tinifyClient.MakeRequest("/shrink", fpath)
-		if err != nil {
-			log.Println("[Skipping] Couldnt convert file: " + err.Error())
-			continue
-		}
-
-		log.Printf("[%d/%d] Downloading compressed image: %s \n", idx+1, totalJpegs, fname)
-
-		err = tinifyClient.DownloadWithMetadata(tinifyResponse.Headers.Location, compressedFilePath)
-		if err != nil {
-			log.Println("[Skipping] Couldnt download compressed image: " + err.Error())
-			continue
-		}
-
-		log.Printf("[%d/%d] Writing metadata back to compressed image: %s \n", idx+1, totalJpegs, fname)
-		err = CopyExifMetadata(fpath, compressedFilePath)
-		if err != nil {
-			log.Println("[Skipping] Coudlnt write metadata to compressed file: " + err.Error())
-		}
-
-		log.Printf("[%d/%d] Finished processing for image %s \n", idx+1, totalJpegs, fname)
+	if flags.maxRoutines < 2 {
+		processFolderSync(jpegFilePaths, compressedFolderPath)
+	} else {
+		processFolderConcurrently(jpegFilePaths, compressedFolderPath)
 	}
 
 	log.Println("Done!")
+}
+
+func processFolderSync(jpegFilePaths []string, compressedFolderPath string) {
+	totalJpegs := len(jpegFilePaths)
+	for idx, fpath := range jpegFilePaths {
+		processFileForFolder(fpath, compressedFolderPath, idx, totalJpegs)
+	}
+}
+
+func processFolderConcurrently(jpegFilePaths []string, compressedFolderPath string) {
+	var wg = sync.WaitGroup{}
+	totalJpegs := len(jpegFilePaths)
+	
+	maxGoroutines := flags.maxRoutines
+	if totalJpegs < maxGoroutines {
+		maxGoroutines = totalJpegs
+	}
+	guard := make(chan struct{}, maxGoroutines)
+	
+	for i := 0; i < totalJpegs; i++ {
+		guard <- struct{}{}
+		wg.Add(1)
+		go func(fpath string, compressedFolderPath string, idx int, totalJpegs int) {
+			processFileForFolder(jpegFilePaths[i], compressedFolderPath, i, totalJpegs)
+			<-guard
+			wg.Done()
+		}(jpegFilePaths[i], compressedFolderPath, i, totalJpegs)
+	}
+	wg.Wait()
+}
+
+func processFileForFolder(fpath string, compressedFolderPath string, idx int, totalJpegs int) {
+	_, fname := filepath.Split(fpath)
+	compressedFilePath := compressedFolderPath + fname
+
+	log.Printf("[%d/%d] Starting processing of %s\n", idx+1, totalJpegs, fname)
+
+	log.Printf("[%d/%d] Compressing file: %s \n", idx+1, totalJpegs, fname)
+	tinifyResponse, err := tinifyClient.MakeRequest("/shrink", fpath)
+	if err != nil {
+		log.Println("[Skipping] Couldnt convert file: " + err.Error())
+		return
+	}
+
+	log.Printf("[%d/%d] Downloading compressed image: %s \n", idx+1, totalJpegs, fname)
+
+	err = tinifyClient.DownloadWithMetadata(tinifyResponse.Headers.Location, compressedFilePath)
+	if err != nil {
+		log.Println("[Skipping] Couldnt download compressed image: " + err.Error())
+		return
+	}
+
+	log.Printf("[%d/%d] Writing metadata back to compressed image: %s \n", idx+1, totalJpegs, fname)
+	err = CopyExifMetadata(fpath, compressedFilePath)
+	if err != nil {
+		log.Println("[Skipping] Coudlnt write metadata to compressed file: " + err.Error())
+	}
+
+	log.Printf("[%d/%d] Finished processing for image %s \n", idx+1, totalJpegs, fname)
 }

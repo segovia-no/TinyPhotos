@@ -36,6 +36,7 @@ go run . <options>
 ```
 -file            <filepath>   Compresses a single file providing the relative or absolute filepath
 -bulkfromfolder  <folderpath> Compresses all the files in a folder providing the relative or absolute path to the folder
+-maxroutines     <number>     Maximum number of images that will be processed concurrently
 ```
 
 ## Build
@@ -55,7 +56,7 @@ make build-all
 ```
 
 ### Roadmap
-- [ ] Concurrent execution for bulk processing mode
+- [x] Concurrent execution for bulk processing mode
 - [ ] Retry after failing
 - [ ] Write log file (activate via CLI flag)
 
