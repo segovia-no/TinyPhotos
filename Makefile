@@ -4,8 +4,8 @@ build:
 	go build .
 
 build-all:
-	GOARCH=amd64 GOOS=darwin go build -o ${BINARY_NAME}-darwin-x64 .
-	GOARCH=arm64 GOOS=darwin go build -o ${BINARY_NAME}-darwin-arm .
+	GOARCH=amd64 GOOS=darwin go build -o ${BINARY_NAME}-macOS-x64 .
+	GOARCH=arm64 GOOS=darwin go build -o ${BINARY_NAME}-macOS-arm .
 	GOARCH=amd64 GOOS=linux go build -o ${BINARY_NAME}-linux-x64 .
 	GOARCH=386 GOOS=linux go build -o ${BINARY_NAME}-linux-x86 .
 	GOARCH=amd64 GOOS=windows go build -o ${BINARY_NAME}-windows-x64.exe .
