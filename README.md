@@ -16,12 +16,18 @@ Tinify's product TinyJPG automatically determines the best compression settings 
 
 ## Setup
 
-- Make a copy of the `.env.sample` file into a file named `.env` and fill out the `TINIFY_API_KEY` field with your Tinify API Key, you can get a developer key here: https://tinypng.com/developers
+You need to setup your Tinify API key developer, this program allows you to set it up using either an `.env` file or the `apikey` flag:
+
+A) __Use of .env file__: Make a copy of the `.env.sample` file into a file named `.env` and fill out the `TINIFY_API_KEY` field with your Tinify API Key.
+
+B) __Use of -apikey flag__: When running the binary, you can pass the api key directly using the `-apikey` flag.
+
+>Note: If both options are provided, the `-apikey` flag will take priority over the `.env` file.
 
 ## Run the binary
 
 ```bash
-tinyphotos <options>
+./tinyphotos <options>
 ```
 
 ## Run as developer
@@ -32,11 +38,13 @@ You can use the following command to quickly run the program without generating 
 go run . <options>
 ```
 
-### Options / Flags
+## Options / Flags
 ```
+-apikey          <string>     An alternative method to the .env file, it allows the user to provide the api key directly as a flag
 -file            <filepath>   Compresses a single file providing the relative or absolute filepath
 -bulkfromfolder  <folderpath> Compresses all the files in a folder providing the relative or absolute path to the folder
 -maxroutines     <number>     Maximum number of images that will be processed concurrently
+-log                          If provided, the output of the program will be saved into a file
 ```
 
 ## Build
@@ -56,9 +64,11 @@ make build-all
 ```
 
 ### Roadmap
+- [x] Support API key passthrough using `-apikey` flag
 - [x] Concurrent execution for bulk processing mode
-- [ ] Retry after failing
-- [ ] Write log file (activate via CLI flag)
+- [ ] Retry after failing with a `-maxretries` flag
+- [x] Write log file (activate via CLI flag)
+- [ ] Investigate how to make the requests to the Tinify API faster for larger files
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

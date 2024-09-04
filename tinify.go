@@ -85,17 +85,22 @@ func (t *TinifyClient) MakeRequest(path string, inputFilename string) (TinifyRes
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return TinifyResponse{}, errors.New("Error making a POST request to tinify API: " + err.Error())
+		return TinifyResponse{}, errors.New("error making a POST request to tinify API: " + err.Error())
 	}
 	defer res.Body.Close()
 
-	stringBody, err := io.ReadAll(res.Body)
+	bodyBytes, err := io.ReadAll(res.Body)
+
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		return TinifyResponse{}, errors.New("tinify API response failed with code " + res.Status + ": " + string(bodyBytes))
+	}
+
 	if err != nil {
 		return TinifyResponse{}, errors.New("Error reading response body: " + err.Error())
 	}
 
 	var jsonRes TinifyResponse
-	json.Unmarshal(stringBody, &jsonRes)
+	json.Unmarshal(bodyBytes, &jsonRes)
 
 	headerCompressionCount, _ := strconv.Atoi(res.Header.Get("Compression-Count"))
 	jsonRes.Headers.CompressionCount = headerCompressionCount
@@ -133,19 +138,19 @@ func (t *TinifyClient) DownloadWithMetadata(locationPath string, outputFilepath 
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return errors.New("Error making a POST request to tinify API: " + err.Error())
+		return errors.New("error making a POST request to tinify API: " + err.Error())
 	}
 	defer res.Body.Close()
 
 	file, err := os.Create(outputFilepath)
 	if err != nil {
-		return errors.New("Error creating output file: " + err.Error())
+		return errors.New("error creating output file: " + err.Error())
 	}
 	defer file.Close()
 
 	_, err = io.Copy(file, res.Body)
 	if err != nil {
-		return errors.New("Error writing to output file: " + err.Error())
+		return errors.New("error writing to output file: " + err.Error())
 	}
 
 	return nil

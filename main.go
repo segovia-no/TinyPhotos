@@ -13,16 +13,26 @@ var flags Flags
 var tinifyClient TinifyClient
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading env variables")
+	flags.parseFlags()
+
+	if flags.log {
+		logFile := setupLogToFile()
+		defer logFile.Close()
 	}
-	err = tinifyClient.SetAPIKey(os.Getenv("TINIFY_API_KEY"))
+
+	apikey := flags.apikey
+	if apikey == "" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading Tinify API key from .env file")
+		}
+		apikey = os.Getenv("TINIFY_API_KEY")
+	}
+
+	err := tinifyClient.SetAPIKey(apikey)
 	if err != nil {
 		log.Fatal("Couldnt set Tinify API key: " + err.Error())
 	}
-
-	flags.parseFlags()
 
 	if flags.file == "" && flags.bulkFromFolder == "" {
 		log.Println("Use the -help flag to see how to use this program")
@@ -99,13 +109,13 @@ func processFolderSync(jpegFilePaths []string, compressedFolderPath string) {
 func processFolderConcurrently(jpegFilePaths []string, compressedFolderPath string) {
 	var wg = sync.WaitGroup{}
 	totalJpegs := len(jpegFilePaths)
-	
+
 	maxGoroutines := flags.maxRoutines
 	if totalJpegs < maxGoroutines {
 		maxGoroutines = totalJpegs
 	}
 	guard := make(chan struct{}, maxGoroutines)
-	
+
 	for i := 0; i < totalJpegs; i++ {
 		guard <- struct{}{}
 		wg.Add(1)
@@ -127,7 +137,7 @@ func processFileForFolder(fpath string, compressedFolderPath string, idx int, to
 	log.Printf("[%d/%d] Compressing file: %s \n", idx+1, totalJpegs, fname)
 	tinifyResponse, err := tinifyClient.MakeRequest("/shrink", fpath)
 	if err != nil {
-		log.Println("[Skipping] Couldnt convert file: " + err.Error())
+		log.Printf("[Skipping %d/%d] Couldnt convert file: %s \n", idx+1, totalJpegs, err.Error())
 		return
 	}
 
@@ -135,14 +145,14 @@ func processFileForFolder(fpath string, compressedFolderPath string, idx int, to
 
 	err = tinifyClient.DownloadWithMetadata(tinifyResponse.Headers.Location, compressedFilePath)
 	if err != nil {
-		log.Println("[Skipping] Couldnt download compressed image: " + err.Error())
+		log.Printf("[Skipping %d/%d] Couldnt download compressed image: %s \n", idx+1, totalJpegs, err.Error())
 		return
 	}
 
 	log.Printf("[%d/%d] Writing metadata back to compressed image: %s \n", idx+1, totalJpegs, fname)
 	err = CopyExifMetadata(fpath, compressedFilePath)
 	if err != nil {
-		log.Println("[Skipping] Coudlnt write metadata to compressed file: " + err.Error())
+		log.Printf("[Skipping %d/%d] Coudlnt write metadata to compressed file: %s \n", idx+1, totalJpegs, err.Error())
 	}
 
 	log.Printf("[%d/%d] Finished processing for image %s \n", idx+1, totalJpegs, fname)
