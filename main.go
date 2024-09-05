@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -49,6 +50,7 @@ func main() {
 }
 
 func processSingleFile(filePath string) {
+	startTime := time.Now()
 	log.Println("Starting conversion of file: " + filePath)
 
 	compressedFilename, err := GenerateCompressedFilename(filePath)
@@ -74,7 +76,8 @@ func processSingleFile(filePath string) {
 		log.Fatal("Coudlnt write metadata to compressed file: " + err.Error())
 	}
 
-	log.Println("Done!")
+	duration := time.Since(startTime)
+	log.Printf("Done!, processing finished in %v", duration)
 }
 
 func processFolder(folderPath string) {
@@ -129,6 +132,7 @@ func processFolderConcurrently(jpegFilePaths []string, compressedFolderPath stri
 }
 
 func processFileForFolder(fpath string, compressedFolderPath string, idx int, totalJpegs int) {
+	startTime := time.Now()
 	_, fname := filepath.Split(fpath)
 	compressedFilePath := compressedFolderPath + fname
 
@@ -152,8 +156,10 @@ func processFileForFolder(fpath string, compressedFolderPath string, idx int, to
 	log.Printf("[%d/%d] Writing metadata back to compressed image: %s \n", idx+1, totalJpegs, fname)
 	err = CopyExifMetadata(fpath, compressedFilePath)
 	if err != nil {
-		log.Printf("[Skipping %d/%d] Coudlnt write metadata to compressed file: %s \n", idx+1, totalJpegs, err.Error())
+		log.Printf("[Warning %d/%d] Coudlnt write metadata to compressed file: %s , tagging with _nometadata filename \n", idx+1, totalJpegs, err.Error())
+		NoMetadataRenaming(compressedFilePath)
 	}
 
-	log.Printf("[%d/%d] Finished processing for image %s \n", idx+1, totalJpegs, fname)
+	duration := time.Since(startTime)
+	log.Printf("[%d/%d] Finished processing for image %s (took %v) \n", idx+1, totalJpegs, fname, duration)
 }

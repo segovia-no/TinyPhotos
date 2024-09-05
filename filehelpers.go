@@ -8,22 +8,16 @@ import (
 )
 
 const COMPRESSED_FILENAME_TEXT = "_compressed"
+const NO_METADATA_FILENAME_SUFFIX = "_nometadata"
 const COMPRESSED_FOLDER_NAME = "compressed"
 
 func GenerateCompressedFilename(filePath string) (string, error) {
-	filepathSlice := strings.Split(filePath, ".")
-	if len(filepathSlice) < 2 {
-		return "", errors.New("missing extension")
+	filepathNoExt, ext, err := getJPGFilenameAndExtension(filePath)
+	if err != nil {
+		return "", err
 	}
 
-	extensionPos := len(filepathSlice) - 1
-	if strings.ToLower(filepathSlice[extensionPos]) != "jpg" && strings.ToLower(filepathSlice[extensionPos]) != "jpeg" {
-		return "", errors.New("this file is not an JPG or JPEG")
-	}
-
-	filepathNoExt := strings.Join(filepathSlice[:extensionPos], "")
-	compressedFilename := filepathNoExt + COMPRESSED_FILENAME_TEXT + "." + filepathSlice[extensionPos]
-
+	compressedFilename := filepathNoExt + COMPRESSED_FILENAME_TEXT + "." + ext
 	return compressedFilename, nil
 }
 
@@ -71,4 +65,35 @@ func CreateCompressedForFolder(folderPath string) (string, error) {
 		return "", err
 	}
 	return compressedFolderPath, nil
+}
+
+func NoMetadataRenaming(filePath string) error {
+	filepathNoExt, ext, err := getJPGFilenameAndExtension(filePath)
+	if err != nil {
+		return err
+	}
+	noMetadataFilename := filepathNoExt + NO_METADATA_FILENAME_SUFFIX + "." + ext
+
+	err = os.Rename(filePath, noMetadataFilename)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getJPGFilenameAndExtension(filename string) (string, string, error) {
+	filepathSlice := strings.Split(filename, ".")
+	if len(filepathSlice) < 2 {
+		return "", "", errors.New("missing extension")
+	}
+
+	extensionPos := len(filepathSlice) - 1
+	ext := filepathSlice[extensionPos]
+	if strings.ToLower(ext) != "jpg" && strings.ToLower(ext) != "jpeg" {
+		return "", "", errors.New("this file is not an JPG or JPEG")
+	}
+
+	filepathNoExt := strings.Join(filepathSlice[:extensionPos], "")
+	return filepathNoExt, ext, nil
 }
