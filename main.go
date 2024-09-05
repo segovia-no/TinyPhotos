@@ -138,23 +138,34 @@ func processFileForFolder(fpath string, compressedFolderPath string, idx int, to
 
 	log.Printf("[%d/%d] Starting processing of %s\n", idx+1, totalJpegs, fname)
 
-	log.Printf("[%d/%d] Compressing file: %s \n", idx+1, totalJpegs, fname)
-	tinifyResponse, err := tinifyClient.MakeRequest("/shrink", fpath)
-	if err != nil {
-		log.Printf("[Skipping %d/%d] Couldnt convert file: %s \n", idx+1, totalJpegs, err.Error())
-		return
-	}
+	var compAttempt uint8 = 0
+	compSucceeded := false
+	for !compSucceeded {
+		compAttempt++
+		if compAttempt > uint8(flags.maxRetries) + 1 {
+			log.Printf("[Failed %d/%d] Compression max attemps exhausted for: %s \n", idx+1, totalJpegs, fname)
+			return
+		}
 
-	log.Printf("[%d/%d] Downloading compressed image: %s \n", idx+1, totalJpegs, fname)
+		log.Printf("[%d/%d] Compressing file: %s - attempt %d \n", idx+1, totalJpegs, fname, compAttempt)
+		tinifyResponse, err := tinifyClient.MakeRequest("/shrink", fpath)
+		if err != nil {
+			log.Printf("[Warning %d/%d] Couldnt convert file: %s \n", idx+1, totalJpegs, err.Error())
+			continue
+		}
 
-	err = tinifyClient.DownloadWithMetadata(tinifyResponse.Headers.Location, compressedFilePath)
-	if err != nil {
-		log.Printf("[Skipping %d/%d] Couldnt download compressed image: %s \n", idx+1, totalJpegs, err.Error())
-		return
+		log.Printf("[%d/%d] Downloading compressed image: %s - attempt %d \n", idx+1, totalJpegs, fname, compAttempt)
+		err = tinifyClient.DownloadWithMetadata(tinifyResponse.Headers.Location, compressedFilePath)
+		if err != nil {
+			log.Printf("[Warning %d/%d] Couldnt download compressed image: %s \n", idx+1, totalJpegs, err.Error())
+			continue
+		}
+
+		compSucceeded = true
 	}
 
 	log.Printf("[%d/%d] Writing metadata back to compressed image: %s \n", idx+1, totalJpegs, fname)
-	err = CopyExifMetadata(fpath, compressedFilePath)
+	err := CopyExifMetadata(fpath, compressedFilePath)
 	if err != nil {
 		log.Printf("[Warning %d/%d] Coudlnt write metadata to compressed file: %s , tagging with _nometadata filename \n", idx+1, totalJpegs, err.Error())
 		NoMetadataRenaming(compressedFilePath)
